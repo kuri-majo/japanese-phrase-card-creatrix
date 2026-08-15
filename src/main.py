@@ -1,3 +1,6 @@
+import hmac
+import os
+
 from flask import Flask, Response, jsonify, render_template, request
 from pydantic import ValidationError
 
@@ -7,6 +10,20 @@ from furigana import readings_agree, to_furigana
 
 app = Flask(__name__)
 
+# When set (deploy.yml sets this from a GitHub secret for the public
+# Cloud Run deployment), every /api/* call must present it via the
+# X-Access-Code header, checked before any LLM call so an unauthorized
+# request never costs anything. Left unset locally, where the app isn't
+# reachable by anyone but you anyway.
+ACCESS_CODE = os.environ.get("APP_ACCESS_CODE", "")
+
+
+def _access_denied() -> bool:
+    if not ACCESS_CODE:
+        return False
+    provided = request.headers.get("X-Access-Code", "")
+    return not hmac.compare_digest(provided, ACCESS_CODE)
+
 
 @app.get("/")
 def index():
@@ -15,6 +32,9 @@ def index():
 
 @app.post("/api/generate")
 def api_generate():
+    if _access_denied():
+        return jsonify({"error": "invalid or missing access code"}), 401
+
     data = request.get_json(silent=True) or {}
     vocab = (data.get("vocab") or "").strip()
     research = bool(data.get("research", False))
@@ -47,6 +67,9 @@ def api_generate():
 
 @app.post("/api/export")
 def api_export():
+    if _access_denied():
+        return jsonify({"error": "invalid or missing access code"}), 401
+
     data = request.get_json(silent=True) or {}
     cards = data.get("cards")
     notetype = data.get("notetype") or ""

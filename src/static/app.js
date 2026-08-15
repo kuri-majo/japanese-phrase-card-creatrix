@@ -2,7 +2,13 @@ const STORAGE_KEYS = {
   deck: "japcards.deck",
   notetype: "japcards.notetype",
   deckName: "japcards.deckname",
+  accessCode: "japcards.accesscode",
 };
+
+function accessCodeHeaders() {
+  const code = localStorage.getItem(STORAGE_KEYS.accessCode) || "";
+  return code ? { "X-Access-Code": code } : {};
+}
 
 const els = {
   vocab: document.getElementById("vocab"),
@@ -25,6 +31,7 @@ const els = {
   downloadBtn: document.getElementById("download-btn"),
   notetype: document.getElementById("notetype"),
   deckNameInput: document.getElementById("deck-name"),
+  accessCode: document.getElementById("access-code"),
 };
 
 let deck = loadDeck();
@@ -45,11 +52,15 @@ function saveDeck() {
 function initSettings() {
   els.notetype.value = localStorage.getItem(STORAGE_KEYS.notetype) || "";
   els.deckNameInput.value = localStorage.getItem(STORAGE_KEYS.deckName) || "";
+  els.accessCode.value = localStorage.getItem(STORAGE_KEYS.accessCode) || "";
   els.notetype.addEventListener("change", () => {
     localStorage.setItem(STORAGE_KEYS.notetype, els.notetype.value);
   });
   els.deckNameInput.addEventListener("change", () => {
     localStorage.setItem(STORAGE_KEYS.deckName, els.deckNameInput.value);
+  });
+  els.accessCode.addEventListener("change", () => {
+    localStorage.setItem(STORAGE_KEYS.accessCode, els.accessCode.value);
   });
 }
 
@@ -95,7 +106,7 @@ async function generateCard() {
   try {
     const resp = await fetch("/api/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...accessCodeHeaders() },
       body: JSON.stringify({ vocab, research: els.research.checked }),
     });
     const data = await resp.json();
@@ -148,7 +159,7 @@ async function downloadDeck() {
   try {
     const resp = await fetch("/api/export", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...accessCodeHeaders() },
       body: JSON.stringify({
         cards: deck,
         notetype: els.notetype.value,

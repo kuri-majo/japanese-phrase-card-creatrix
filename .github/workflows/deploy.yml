@@ -71,3 +71,10 @@ jobs:
             GOOGLE_GENAI_USE_ENTERPRISE=true
             GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
             GOOGLE_CLOUD_LOCATION=global
+            APP_ACCESS_CODE=${{ secrets.APP_ACCESS_CODE }}
+          # Public (allUsers) invocation still needs a real access code
+          # (main.py rejects requests without it, before any Gemini call
+          # happens) -- this cap is a hard backstop on top of that, so
+          # even a leaked code can't scale past a few concurrent
+          # instances worth of billed calls.
+          flags: --max-instances=3

@@ -154,3 +154,71 @@ def test_export_rejects_missing_cards(client):
 def test_export_rejects_non_list_cards(client):
     resp = client.post("/api/export", json={"cards": "not a list"})
     assert resp.status_code == 400
+
+
+def test_generate_allows_request_without_header_when_access_code_unset(client, monkeypatch):
+    # The default (local dev, and any deployment that never set
+    # APP_ACCESS_CODE): no gate at all.
+    monkeypatch.setattr(main_module, "ACCESS_CODE", "")
+    monkeypatch.setattr(
+        main_module, "generate", lambda vocab, research: CardFields(front="x", expression="x", reading="x")
+    )
+
+    resp = client.post("/api/generate", json={"vocab": "だが", "research": False})
+
+    assert resp.status_code == 200
+
+
+def test_generate_rejects_missing_access_code_header(client, monkeypatch):
+    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
+
+    resp = client.post("/api/generate", json={"vocab": "だが", "research": False})
+
+    assert resp.status_code == 401
+
+
+def test_generate_rejects_wrong_access_code_header(client, monkeypatch):
+    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
+
+    resp = client.post(
+        "/api/generate",
+        json={"vocab": "だが", "research": False},
+        headers={"X-Access-Code": "wrong"},
+    )
+
+    assert resp.status_code == 401
+
+
+def test_generate_allows_correct_access_code_header(client, monkeypatch):
+    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
+    monkeypatch.setattr(
+        main_module, "generate", lambda vocab, research: CardFields(front="x", expression="x", reading="x")
+    )
+
+    resp = client.post(
+        "/api/generate",
+        json={"vocab": "だが", "research": False},
+        headers={"X-Access-Code": "s3cr3t"},
+    )
+
+    assert resp.status_code == 200
+
+
+def test_export_rejects_missing_access_code_header(client, monkeypatch):
+    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
+
+    resp = client.post("/api/export", json={"cards": [{"front": "x", "expression": "x", "reading": "x"}]})
+
+    assert resp.status_code == 401
+
+
+def test_export_allows_correct_access_code_header(client, monkeypatch):
+    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
+
+    resp = client.post(
+        "/api/export",
+        json={"cards": [{"front": "x", "expression": "x", "reading": "x"}]},
+        headers={"X-Access-Code": "s3cr3t"},
+    )
+
+    assert resp.status_code == 200
