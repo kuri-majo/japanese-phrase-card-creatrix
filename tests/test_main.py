@@ -23,7 +23,7 @@ def test_generate_returns_card_plus_fugashi_reading_and_agreement(client, monkey
         reading="もうすぐ 冬[ふゆ]になる",
         bemerkungen="",
     )
-    monkeypatch.setattr(main_module, "generate", lambda vocab, research: fake_card)
+    monkeypatch.setattr(main_module, "generate", lambda vocab, research, guidance="": fake_card)
 
     resp = client.post("/api/generate", json={"vocab": "Xになる", "research": False})
 
@@ -49,7 +49,7 @@ def test_generate_flags_disagreement_on_ambiguous_reading(client, monkeypatch):
         reading="明日[あした]は 雨[あめ]だ",
         bemerkungen="",
     )
-    monkeypatch.setattr(main_module, "generate", lambda vocab, research: fake_card)
+    monkeypatch.setattr(main_module, "generate", lambda vocab, research, guidance="": fake_card)
 
     resp = client.post("/api/generate", json={"vocab": "明日", "research": False})
 
@@ -71,7 +71,7 @@ def test_generate_rejects_missing_vocab(client):
 def test_generate_passes_vocab_and_research_flag_through(client, monkeypatch):
     seen = {}
 
-    def fake_generate(vocab, research):
+    def fake_generate(vocab, research, guidance=""):
         seen["vocab"] = vocab
         seen["research"] = research
         return CardFields(front="x", expression="x", reading="x", bemerkungen="")
@@ -83,12 +83,43 @@ def test_generate_passes_vocab_and_research_flag_through(client, monkeypatch):
     assert seen == {"vocab": "だが", "research": True}
 
 
+def test_generate_passes_guidance_through(client, monkeypatch):
+    seen = {}
+
+    def fake_generate(vocab, research, guidance=""):
+        seen["guidance"] = guidance
+        return CardFields(front="x", expression="x", reading="x", bemerkungen="")
+
+    monkeypatch.setattr(main_module, "generate", fake_generate)
+
+    client.post(
+        "/api/generate",
+        json={"vocab": "だが", "research": False, "guidance": "make it shorter"},
+    )
+
+    assert seen["guidance"] == "make it shorter"
+
+
+def test_generate_defaults_guidance_to_empty_string_when_omitted(client, monkeypatch):
+    seen = {}
+
+    def fake_generate(vocab, research, guidance=""):
+        seen["guidance"] = guidance
+        return CardFields(front="x", expression="x", reading="x", bemerkungen="")
+
+    monkeypatch.setattr(main_module, "generate", fake_generate)
+
+    client.post("/api/generate", json={"vocab": "だが"})
+
+    assert seen["guidance"] == ""
+
+
 def test_generate_defaults_research_to_false_when_omitted(client, monkeypatch):
     seen = {}
     monkeypatch.setattr(
         main_module,
         "generate",
-        lambda vocab, research: seen.update(research=research)
+        lambda vocab, research, guidance="": seen.update(research=research)
         or CardFields(front="x", expression="x", reading="x", bemerkungen=""),
     )
 
@@ -98,7 +129,7 @@ def test_generate_defaults_research_to_false_when_omitted(client, monkeypatch):
 
 
 def test_generate_surfaces_backend_runtime_error_as_502(client, monkeypatch):
-    def boom(vocab, research):
+    def boom(vocab, research, guidance=""):
         raise RuntimeError("backend exploded")
 
     monkeypatch.setattr(main_module, "generate", boom)
@@ -110,7 +141,7 @@ def test_generate_surfaces_backend_runtime_error_as_502(client, monkeypatch):
 
 
 def test_generate_surfaces_malformed_backend_output_as_502(client, monkeypatch):
-    def boom(vocab, research):
+    def boom(vocab, research, guidance=""):
         raise ValueError("no JSON object found in Claude's response: 'oops'")
 
     monkeypatch.setattr(main_module, "generate", boom)
@@ -161,7 +192,9 @@ def test_generate_allows_request_without_header_when_access_code_unset(client, m
     # APP_ACCESS_CODE): no gate at all.
     monkeypatch.setattr(main_module, "ACCESS_CODE", "")
     monkeypatch.setattr(
-        main_module, "generate", lambda vocab, research: CardFields(front="x", expression="x", reading="x")
+        main_module,
+        "generate",
+        lambda vocab, research, guidance="": CardFields(front="x", expression="x", reading="x"),
     )
 
     resp = client.post("/api/generate", json={"vocab": "だが", "research": False})
@@ -192,7 +225,9 @@ def test_generate_rejects_wrong_access_code_header(client, monkeypatch):
 def test_generate_allows_correct_access_code_header(client, monkeypatch):
     monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
     monkeypatch.setattr(
-        main_module, "generate", lambda vocab, research: CardFields(front="x", expression="x", reading="x")
+        main_module,
+        "generate",
+        lambda vocab, research, guidance="": CardFields(front="x", expression="x", reading="x"),
     )
 
     resp = client.post(

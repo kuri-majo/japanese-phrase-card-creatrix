@@ -136,6 +136,26 @@ def test_generate_raises_if_no_result_message_ever_arrives(monkeypatch):
         claude_local.generate("Xになる", research=False)
 
 
+def test_generate_appends_guidance_to_prompt(monkeypatch):
+    fake = _fake_query(make_result(result=CARD_JSON))
+    monkeypatch.setattr(claude_local, "query", fake)
+
+    claude_local.generate("Xになる", research=False, guidance="use a more casual register")
+
+    prompt = fake.calls[0]["prompt"]
+    assert "Xになる" in prompt
+    assert "use a more casual register" in prompt
+
+
+def test_generate_omits_guidance_section_when_blank(monkeypatch):
+    fake = _fake_query(make_result(result=CARD_JSON))
+    monkeypatch.setattr(claude_local, "query", fake)
+
+    claude_local.generate("Xになる", research=False)
+
+    assert fake.calls[0]["prompt"] == "Xになる"
+
+
 def test_non_research_mode_locks_tools_down_to_nothing(monkeypatch):
     fake = _fake_query(make_result(result=CARD_JSON))
     monkeypatch.setattr(claude_local, "query", fake)

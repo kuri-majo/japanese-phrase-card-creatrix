@@ -16,6 +16,7 @@ const els = {
   fieldExpression: document.getElementById("field-expression"),
   fieldReading: document.getElementById("field-reading"),
   fieldBemerkungen: document.getElementById("field-bemerkungen"),
+  fieldGuidance: document.getElementById("field-guidance"),
   readingComparison: document.getElementById("reading-comparison"),
   readingLlm: document.getElementById("reading-llm"),
   readingFugashi: document.getElementById("reading-fugashi"),
@@ -118,7 +119,11 @@ async function generateCard() {
     const resp = await fetch("/api/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...accessCodeHeaders() },
-      body: JSON.stringify({ vocab, research: els.research.checked }),
+      body: JSON.stringify({
+        vocab,
+        research: els.research.checked,
+        guidance: els.fieldGuidance.value.trim(),
+      }),
     });
     const data = await resp.json();
     if (!resp.ok) {
@@ -160,6 +165,7 @@ function addCurrentCardToDeck() {
 
   els.cardPreview.hidden = true;
   els.vocab.value = "";
+  els.fieldGuidance.value = "";
   els.vocab.focus();
 }
 

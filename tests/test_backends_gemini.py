@@ -70,6 +70,29 @@ def test_generate_with_research_makes_a_grounded_call_then_a_structured_one(monk
     assert second_kwargs["config"].response_json_schema == CardFields.model_json_schema()
 
 
+def test_generate_appends_guidance_to_contents(monkeypatch):
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = MagicMock(text=CARD_JSON)
+    monkeypatch.setattr(gemini, "_get_client", lambda: mock_client)
+
+    gemini.generate("Xになる", research=False, guidance="use a more casual register")
+
+    _, kwargs = mock_client.models.generate_content.call_args
+    assert "Xになる" in kwargs["contents"]
+    assert "use a more casual register" in kwargs["contents"]
+
+
+def test_generate_omits_guidance_section_when_blank(monkeypatch):
+    mock_client = MagicMock()
+    mock_client.models.generate_content.return_value = MagicMock(text=CARD_JSON)
+    monkeypatch.setattr(gemini, "_get_client", lambda: mock_client)
+
+    gemini.generate("Xになる", research=False)
+
+    _, kwargs = mock_client.models.generate_content.call_args
+    assert kwargs["contents"] == "Xになる"
+
+
 def test_generate_raises_a_clear_error_on_empty_response(monkeypatch):
     mock_client = MagicMock()
     mock_client.models.generate_content.return_value = MagicMock(text=None)

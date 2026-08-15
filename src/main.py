@@ -38,12 +38,13 @@ def api_generate():
     data = request.get_json(silent=True) or {}
     vocab = (data.get("vocab") or "").strip()
     research = bool(data.get("research", False))
+    guidance = (data.get("guidance") or "").strip()
 
     if not vocab:
         return jsonify({"error": "vocab is required"}), 400
 
     try:
-        card = generate(vocab, research)
+        card = generate(vocab, research, guidance)
     except (ValidationError, ValueError, RuntimeError) as exc:
         # ValidationError/ValueError: the backend's own output didn't
         # parse into CardFields. RuntimeError: the backend itself failed

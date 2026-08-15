@@ -37,7 +37,11 @@ def _extract_json_object(text: str) -> str:
     return text[start : end + 1]
 
 
-async def _run_query(vocab: str, research: bool) -> str:
+async def _run_query(vocab: str, research: bool, guidance: str = "") -> str:
+    prompt = vocab
+    if guidance:
+        prompt = f"{prompt}\n\nAdditional guidance from the user for this card: {guidance}"
+
     options = ClaudeAgentOptions(
         system_prompt=SYSTEM + _JSON_INSTRUCTION,
         model=MODEL,
@@ -63,7 +67,7 @@ async def _run_query(vocab: str, research: bool) -> str:
     # spurious "aclose(): asynchronous generator is already running"
     # RuntimeError to stderr on every call. Closing it ourselves, before
     # the loop starts tearing down, avoids that race.
-    agen = query(prompt=vocab, options=options)
+    agen = query(prompt=prompt, options=options)
     try:
         async for message in agen:
             if isinstance(message, ResultMessage):
@@ -79,10 +83,10 @@ async def _run_query(vocab: str, research: bool) -> str:
     raise RuntimeError(f"Claude query for {vocab!r} produced no result message")
 
 
-def generate(vocab: str, research: bool) -> CardFields:
+def generate(vocab: str, research: bool, guidance: str = "") -> CardFields:
     last_error: Exception = RuntimeError("unreachable")
     for _ in range(2):
-        raw = asyncio.run(_run_query(vocab, research))
+        raw = asyncio.run(_run_query(vocab, research, guidance))
         try:
             return CardFields.model_validate_json(_extract_json_object(raw))
         except (ValueError, ValidationError) as exc:

@@ -41,14 +41,16 @@ def _research(client: genai.Client, vocab: str) -> str:
     return resp.text or ""
 
 
-def generate(vocab: str, research: bool) -> CardFields:
+def generate(vocab: str, research: bool, guidance: str = "") -> CardFields:
     client = _get_client()
 
     contents = vocab
     if research:
         findings = _research(client, vocab)
         if findings:
-            contents = f"{vocab}\n\nReal usage found via web search:\n{findings}"
+            contents = f"{contents}\n\nReal usage found via web search:\n{findings}"
+    if guidance:
+        contents = f"{contents}\n\nAdditional guidance from the user for this card: {guidance}"
 
     resp = client.models.generate_content(
         model=MODEL,
