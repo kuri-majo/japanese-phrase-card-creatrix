@@ -13,7 +13,15 @@ env:
   # this file means the project ID isn't sitting in the repo's source.
   PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  # Used to authenticate the GitHub Actions build/deploy calls -- has
+  # run.admin/artifactregistry.writer/iam.serviceAccountUser, none of
+  # which the running app itself needs.
   SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+  # The container's own identity at runtime -- a separate, narrower
+  # account carrying only roles/aiplatform.user, so the deployed app
+  # can't do anything with the deploy account's broader permissions
+  # even if it were ever compromised.
+  RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
 
 permissions:
   contents: read
@@ -50,14 +58,14 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.IMAGE }}
           # Without this, Cloud Run runs the container as the project's
-          # default compute service account on first deploy -- not the
-          # scoped deploy-${SERVICE} account that roles/aiplatform.user
-          # was granted to (that account is otherwise only used by GitHub
-          # Actions, over WIF, to push the build and issue the deploy
-          # call). Reusing it as the runtime identity too means the app
-          # actually has the Vertex AI access it needs, instead of a
-          # broader-than-intended default identity it doesn't.
-          service_account: ${{ env.SERVICE_ACCOUNT }}
+          # default compute service account on first deploy -- not
+          # something scoped to what this app actually needs. This is
+          # deliberately RUNTIME_SERVICE_ACCOUNT, not the deploy SA above:
+          # the deploy SA's run.admin/artifactregistry.writer/
+          # serviceAccountUser roles are for the GitHub Actions build/
+          # deploy step, not something the running container should carry
+          # around too.
+          service_account: ${{ env.RUNTIME_SERVICE_ACCOUNT }}
           env_vars: |
             CARD_BACKEND=gemini
             GOOGLE_GENAI_USE_ENTERPRISE=true
