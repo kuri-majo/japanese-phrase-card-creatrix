@@ -49,6 +49,15 @@ jobs:
           service: ${{ env.SERVICE }}
           region: ${{ env.REGION }}
           image: ${{ env.IMAGE }}
+          # Without this, Cloud Run runs the container as the project's
+          # default compute service account on first deploy -- not the
+          # scoped deploy-${SERVICE} account that roles/aiplatform.user
+          # was granted to (that account is otherwise only used by GitHub
+          # Actions, over WIF, to push the build and issue the deploy
+          # call). Reusing it as the runtime identity too means the app
+          # actually has the Vertex AI access it needs, instead of a
+          # broader-than-intended default identity it doesn't.
+          service_account: ${{ env.SERVICE_ACCOUNT }}
           env_vars: |
             CARD_BACKEND=gemini
             GOOGLE_GENAI_USE_ENTERPRISE=true
