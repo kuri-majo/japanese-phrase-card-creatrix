@@ -5,11 +5,6 @@ const STORAGE_KEYS = {
   accessCode: "japcards.accesscode",
 };
 
-function accessCodeHeaders() {
-  const code = localStorage.getItem(STORAGE_KEYS.accessCode) || "";
-  return code ? { "X-Access-Code": code } : {};
-}
-
 const els = {
   vocab: document.getElementById("vocab"),
   research: document.getElementById("research"),
@@ -33,6 +28,15 @@ const els = {
   deckNameInput: document.getElementById("deck-name"),
   accessCode: document.getElementById("access-code"),
 };
+
+function accessCodeHeaders() {
+  // Read the field's live value rather than only localStorage: the
+  // field only syncs to localStorage on its `change` event (fires on
+  // blur), so a code typed and submitted without the field ever losing
+  // focus would otherwise be silently dropped.
+  const code = els.accessCode.value.trim() || localStorage.getItem(STORAGE_KEYS.accessCode) || "";
+  return code ? { "X-Access-Code": code } : {};
+}
 
 let deck = loadDeck();
 
