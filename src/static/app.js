@@ -53,9 +53,16 @@ function saveDeck() {
   localStorage.setItem(STORAGE_KEYS.deck, JSON.stringify(deck));
 }
 
+// Defaults for a fresh browser/profile that's never saved settings
+// before -- your actual note type and deck, so the common case needs no
+// typing. Still fully overridable, and once changed the override wins
+// (STORAGE_KEYS.notetype/deckName take precedence below).
+const DEFAULT_NOTETYPE = "Japanese Verb-Objekt-Kombinationen";
+const DEFAULT_DECK = "Japanese::Verb-Objekt-Kombinationen";
+
 function initSettings() {
-  els.notetype.value = localStorage.getItem(STORAGE_KEYS.notetype) || "";
-  els.deckNameInput.value = localStorage.getItem(STORAGE_KEYS.deckName) || "";
+  els.notetype.value = localStorage.getItem(STORAGE_KEYS.notetype) || DEFAULT_NOTETYPE;
+  els.deckNameInput.value = localStorage.getItem(STORAGE_KEYS.deckName) || DEFAULT_DECK;
   els.accessCode.value = localStorage.getItem(STORAGE_KEYS.accessCode) || "";
   els.notetype.addEventListener("change", () => {
     localStorage.setItem(STORAGE_KEYS.notetype, els.notetype.value);
