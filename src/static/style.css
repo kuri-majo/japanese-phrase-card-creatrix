@@ -1,0 +1,131 @@
+:root {
+  color-scheme: light dark;
+  --gap: 0.75rem;
+  --border: color-mix(in srgb, currentColor 20%, transparent);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1.5rem;
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin-block-end: 0.2rem;
+}
+
+.subtitle {
+  margin-block-start: 0;
+  opacity: 0.75;
+}
+
+section {
+  margin-block: 1.5rem;
+}
+
+label {
+  display: block;
+  margin-block-end: var(--gap);
+  font-weight: 600;
+}
+
+input[type="text"],
+textarea {
+  display: block;
+  width: 100%;
+  font: inherit;
+  padding: 0.5rem;
+  margin-block-start: 0.25rem;
+  font-weight: normal;
+}
+
+textarea[lang="ja"],
+input[lang="ja"] {
+  font-size: 1.15rem;
+}
+
+label.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: normal;
+}
+
+label.checkbox input {
+  width: auto;
+}
+
+button {
+  font: inherit;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.actions {
+  display: flex;
+  gap: var(--gap);
+  margin-block-start: var(--gap);
+}
+
+.warning {
+  color: #7a4b00;
+  background: #fff3cd;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  font-weight: 600;
+}
+
+.comparison {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.comparison p {
+  margin: 0.2rem 0;
+}
+
+#deck-list {
+  list-style: none;
+  padding: 0;
+}
+
+#deck-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.deck-item-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#generate-status {
+  min-height: 1.2em;
+  font-size: 0.9rem;
+}
+
+details summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+details[open] summary {
+  margin-block-end: var(--gap);
+}

@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Japanese Phrase Card Creatrix</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Japanese Phrase Card Creatrix</h1>
+    <p class="subtitle">Vocabulary in context, exported for Anki.</p>
+  </header>
+
+  <main>
+    <section id="settings-section">
+      <details>
+        <summary>Anki settings</summary>
+        <label for="notetype">Note type
+          <input id="notetype" type="text" placeholder="e.g. Japanese Vocab">
+        </label>
+        <label for="deck-name">Deck
+          <input id="deck-name" type="text" placeholder="e.g. Japanese::Vocab">
+        </label>
+      </details>
+    </section>
+
+    <section id="generate-section">
+      <label for="vocab">Japanese vocabulary</label>
+      <input id="vocab" type="text" lang="ja" placeholder="e.g. Xになる, だが, 一日中" autofocus>
+
+      <label class="checkbox" for="research">
+        <input id="research" type="checkbox">
+        research usage first
+      </label>
+
+      <button id="generate-btn" type="button">Generate</button>
+      <p id="generate-status" role="status"></p>
+    </section>
+
+    <section id="card-preview" hidden>
+      <h2>New card</h2>
+
+      <p id="disagreement-warning" class="warning" hidden>
+        The generated reading doesn't match the automatic furigana reading — check it below.
+      </p>
+
+      <label for="field-front">Front (German)
+        <textarea id="field-front" rows="2"></textarea>
+      </label>
+      <label for="field-expression">Expression
+        <textarea id="field-expression" rows="2" lang="ja"></textarea>
+      </label>
+      <label for="field-reading">Reading
+        <textarea id="field-reading" rows="2" lang="ja"></textarea>
+      </label>
+      <label for="field-bemerkungen">Bemerkungen
+        <textarea id="field-bemerkungen" rows="2"></textarea>
+      </label>
+
+      <div id="reading-comparison" class="comparison" hidden>
+        <p>LLM reading: <span id="reading-llm" lang="ja"></span></p>
+        <p>fugashi reading: <span id="reading-fugashi" lang="ja"></span></p>
+      </div>
+
+      <div class="actions">
+        <button id="regenerate-btn" type="button">Regenerate</button>
+        <button id="add-btn" type="button">Add to deck</button>
+      </div>
+    </section>
+
+    <section id="deck-section">
+      <h2>Deck (<span id="deck-count">0</span> cards)</h2>
+      <ul id="deck-list"></ul>
+      <button id="download-btn" type="button" disabled>Download for Anki</button>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

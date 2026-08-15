@@ -1,0 +1,56 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+
+env:
+  REGION: us-central1
+  SERVICE: japanese-phrase-card-creatrix
+  REPOSITORY: apps # shared Artifact Registry repo, see organisatrix/infra
+  # Set these in this repo's Settings -> Secrets and variables -> Actions ->
+  # Variables (see organisatrix/infra/README.md step 4). Keeping them out of
+  # this file means the project ID isn't sitting in the repo's source.
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  WORKLOAD_IDENTITY_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+  SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - name: Build and push image
+        run: |
+          IMAGE="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPOSITORY }}/${{ env.SERVICE }}:${{ github.sha }}"
+          docker build -t "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE }}
+          env_vars: |
+            CARD_BACKEND=gemini
+            GOOGLE_GENAI_USE_ENTERPRISE=true
+            GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
+            GOOGLE_CLOUD_LOCATION=global

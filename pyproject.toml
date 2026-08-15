@@ -1,0 +1,26 @@
+[project]
+name = "japanese-phrase-card-creatrix"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "flask>=3.0.3",
+    "gunicorn>=22.0.0",
+    "pydantic>=2.7.0",
+    "fugashi>=1.3.2",
+    "unidic-lite>=1.0.8",
+    "google-genai>=1.0.0",
+    "claude-agent-sdk>=0.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+# src/ is the import root at runtime too (gunicorn runs with --chdir src,
+# so main.py does flat imports like `from prompt import ...`, not
+# `from src.prompt import ...`). Adding it here keeps tests importing the
+# same way production actually runs, instead of a parallel `src.`-prefixed
+# convention that would only work under pytest.
+pythonpath = ["src"]
