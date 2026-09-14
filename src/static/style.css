@@ -26,6 +26,12 @@ h1 {
   opacity: 0.75;
 }
 
+.user-bar {
+  margin-block-start: 0.4rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
 section {
   margin-block: 1.5rem;
 }
@@ -119,6 +125,18 @@ button:disabled {
 #generate-status {
   min-height: 1.2em;
   font-size: 0.9rem;
+}
+
+.sync-status {
+  min-height: 1.2em;
+  font-size: 0.85rem;
+  opacity: 0.75;
+}
+
+.sync-status button {
+  font-size: 0.85rem;
+  padding: 0.1rem 0.5rem;
+  margin-inline-start: 0.3rem;
 }
 
 details summary {

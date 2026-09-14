@@ -18,9 +18,9 @@ env:
   # which the running app itself needs.
   SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
   # The container's own identity at runtime -- a separate, narrower
-  # account carrying only roles/aiplatform.user, so the deployed app
-  # can't do anything with the deploy account's broader permissions
-  # even if it were ever compromised.
+  # account carrying only roles/aiplatform.user and roles/datastore.user
+  # (see AGENTS.md), so the deployed app can't do anything with the
+  # deploy account's broader permissions even if it were ever compromised.
   RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
 
 permissions:
@@ -62,7 +62,13 @@ jobs:
             GOOGLE_GENAI_USE_ENTERPRISE=true
             GOOGLE_CLOUD_PROJECT=${{ env.PROJECT_ID }}
             GOOGLE_CLOUD_LOCATION=global
-            APP_ACCESS_CODE=${{ secrets.APP_ACCESS_CODE }}
+            CARD_STORE=firestore
+            ZITADEL_DOMAIN=${{ vars.ZITADEL_DOMAIN }}
+            ZITADEL_CLIENT_ID=${{ vars.ZITADEL_CLIENT_ID }}
+            ZITADEL_PROJECT_ID=${{ vars.ZITADEL_PROJECT_ID }}
+            APP_BASE_URL=${{ vars.APP_BASE_URL }}
+            ZITADEL_CLIENT_SECRET=${{ secrets.ZITADEL_CLIENT_SECRET }}
+            FLASK_SECRET_KEY=${{ secrets.FLASK_SECRET_KEY }}
           # deploy-cloudrun@v2 has NO service_account input (confirmed
           # against the action's own action.yml -- an earlier version of
           # this file used one anyway, which GitHub Actions silently
@@ -72,9 +78,11 @@ jobs:
           # flag though, so it has to go through `flags` instead. Without
           # it the container defaults to the project's default compute
           # SA, not RUNTIME_SERVICE_ACCOUNT (a separate, narrower account
-          # carrying only roles/aiplatform.user -- the deploy SA above
-          # has broader roles the running container doesn't need).
-          # --max-instances is a backstop on top of the access-code gate
-          # in main.py: even a leaked code can't scale past a few
-          # concurrent instances worth of billed calls.
+          # carrying only roles/aiplatform.user and roles/datastore.user
+          # -- the deploy SA above has broader roles the running
+          # container doesn't need).
+          # --max-instances is a backstop on top of the ZITADEL login +
+          # per-user approval gate in main.py/auth.py: even a compromised
+          # account can't scale past a few concurrent instances worth of
+          # billed calls.
           flags: --service-account=${{ env.RUNTIME_SERVICE_ACCOUNT }} --max-instances=3

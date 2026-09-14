@@ -10,6 +10,12 @@
   <header>
     <h1>Japanese Phrase Card Creatrix</h1>
     <p class="subtitle">Vocabulary in context, exported for Anki.</p>
+    {% if auth_enabled %}
+    <p class="user-bar">
+      Signed in as {{ user_email }} ·
+      <a href="{{ url_for('auth.logout') }}">Log out</a>
+    </p>
+    {% endif %}
   </header>
 
   <main>
@@ -21,9 +27,6 @@
         </label>
         <label for="deck-name">Deck
           <input id="deck-name" type="text" placeholder="e.g. Japanese::Vocab">
-        </label>
-        <label for="access-code">Access code
-          <input id="access-code" type="password" placeholder="only needed on the public deployment" autocomplete="off">
         </label>
       </details>
     </section>
@@ -78,6 +81,7 @@
 
     <section id="deck-section">
       <h2>Deck (<span id="deck-count">0</span> cards)</h2>
+      <p id="sync-status" role="status" class="sync-status"></p>
       <ul id="deck-list"></ul>
       <button id="download-btn" type="button" disabled>Download for Anki</button>
     </section>
