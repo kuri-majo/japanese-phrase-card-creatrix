@@ -18,6 +18,7 @@ Enablement has three states, controlled entirely by env vars:
 import functools
 import os
 
+from authlib.integrations.base_client.errors import OAuthError
 from authlib.integrations.flask_client import OAuth
 from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
 
@@ -98,7 +99,14 @@ def login():
 
 @bp.get("/callback")
 def callback():
-    token = oauth.zitadel.authorize_access_token()
+    try:
+        token = oauth.zitadel.authorize_access_token()
+    except OAuthError:
+        # Most commonly a stale/interrupted attempt -- a reloaded or
+        # resumed login page completing against a session cookie that no
+        # longer has the matching state. Restarting from /auth/login is
+        # always safe, so recover into that instead of a 500.
+        return redirect(url_for("auth.login"))
     # Fetched explicitly rather than relying on token["userinfo"] -- the
     # project-roles claim only reliably lands in the userinfo response,
     # regardless of whether "assert roles in ID token" is turned on.

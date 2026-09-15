@@ -1,4 +1,5 @@
 import pytest
+from authlib.integrations.base_client.errors import MismatchingStateError
 
 import auth as auth_module
 import main as main_module
@@ -82,6 +83,22 @@ def test_auth_routes_redirect_home_when_auth_disabled(client, path):
 
     assert resp.status_code == 302
     assert resp.headers["Location"] == "/"
+
+
+def test_callback_recovers_from_stale_state_by_restarting_login(client, auth_enabled, monkeypatch):
+    # A reloaded or resumed login page can complete against a session
+    # cookie whose stored state no longer matches -- previously an
+    # unhandled MismatchingStateError crashed this into a 500.
+    class FakeZitadel:
+        def authorize_access_token(self):
+            raise MismatchingStateError()
+
+    monkeypatch.setattr(auth_module.oauth, "zitadel", FakeZitadel(), raising=False)
+
+    resp = client.get("/auth/callback")
+
+    assert resp.status_code == 302
+    assert resp.headers["Location"].endswith("/auth/login")
 
 
 def test_role_claim_reads_project_scoped_key(monkeypatch):
