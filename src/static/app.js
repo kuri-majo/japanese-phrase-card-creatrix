@@ -2,7 +2,6 @@ const STORAGE_KEYS = {
   deck: "japcards.deck",
   notetype: "japcards.notetype",
   deckName: "japcards.deckname",
-  accessCode: "japcards.accesscode",
 };
 
 const els = {
@@ -24,19 +23,17 @@ const els = {
   addBtn: document.getElementById("add-btn"),
   deckList: document.getElementById("deck-list"),
   deckCount: document.getElementById("deck-count"),
+  syncStatus: document.getElementById("sync-status"),
   downloadBtn: document.getElementById("download-btn"),
   notetype: document.getElementById("notetype"),
   deckNameInput: document.getElementById("deck-name"),
-  accessCode: document.getElementById("access-code"),
 };
 
-function accessCodeHeaders() {
-  // Read the field's live value rather than only localStorage: the
-  // field only syncs to localStorage on its `change` event (fires on
-  // blur), so a code typed and submitted without the field ever losing
-  // focus would otherwise be silently dropped.
-  const code = els.accessCode.value.trim() || localStorage.getItem(STORAGE_KEYS.accessCode) || "";
-  return code ? { "X-Access-Code": code } : {};
+function friendlyErrorMessage(status, fallback) {
+  // The session cookie is the only auth signal now (no more per-request
+  // access-code header) -- a 401 specifically means it expired or was
+  // never set, which reloading (and re-hitting the ZITADEL login) fixes.
+  return status === 401 ? "Session expired — reload the page to sign in again." : fallback;
 }
 
 let deck = loadDeck();
@@ -50,7 +47,7 @@ function loadDeck() {
   }
 }
 
-function saveDeck() {
+function persistDeckLocally() {
   localStorage.setItem(STORAGE_KEYS.deck, JSON.stringify(deck));
 }
 
@@ -64,15 +61,13 @@ const DEFAULT_DECK = "Japanese::Verb-Objekt-Kombinationen";
 function initSettings() {
   els.notetype.value = localStorage.getItem(STORAGE_KEYS.notetype) || DEFAULT_NOTETYPE;
   els.deckNameInput.value = localStorage.getItem(STORAGE_KEYS.deckName) || DEFAULT_DECK;
-  els.accessCode.value = localStorage.getItem(STORAGE_KEYS.accessCode) || "";
   els.notetype.addEventListener("change", () => {
     localStorage.setItem(STORAGE_KEYS.notetype, els.notetype.value);
+    scheduleSync();
   });
   els.deckNameInput.addEventListener("change", () => {
     localStorage.setItem(STORAGE_KEYS.deckName, els.deckNameInput.value);
-  });
-  els.accessCode.addEventListener("change", () => {
-    localStorage.setItem(STORAGE_KEYS.accessCode, els.accessCode.value);
+    scheduleSync();
   });
 }
 
@@ -104,6 +99,118 @@ function renderDeck() {
   els.downloadBtn.disabled = deck.length === 0;
 }
 
+// --- Server sync -----------------------------------------------------
+//
+// The server is the source of truth once it has a document; localStorage
+// is kept as a mirror so the app still works (read-only against stale
+// data) if a PUT or the initial GET fails. Every mutation writes
+// localStorage immediately, then a debounced PUT pushes it to the server
+// -- last write wins, there's no merge across devices/tabs.
+
+let syncTimer = null;
+// True from the moment any local edit happens. Lets initDeck() notice a
+// card was added/removed while its GET was still in flight, so it doesn't
+// clobber that edit with the (now stale) server response -- see there.
+let hasLocalEdit = false;
+// Only one PUT in flight at a time; a sync requested while one is already
+// running is queued rather than fired concurrently, so two overlapping
+// requests can never complete out of order and have the older one win.
+let syncInFlight = false;
+let syncQueued = false;
+
+function saveDeck() {
+  hasLocalEdit = true;
+  persistDeckLocally();
+  scheduleSync();
+}
+
+function scheduleSync() {
+  els.syncStatus.textContent = "Saving…";
+  clearTimeout(syncTimer);
+  syncTimer = setTimeout(runSync, 1000);
+}
+
+async function runSync() {
+  if (syncInFlight) {
+    syncQueued = true;
+    return;
+  }
+  syncInFlight = true;
+  try {
+    await syncToServer();
+  } finally {
+    syncInFlight = false;
+    if (syncQueued) {
+      syncQueued = false;
+      runSync();
+    }
+  }
+}
+
+async function syncToServer() {
+  try {
+    const resp = await fetch("/api/deck", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cards: deck,
+        notetype: els.notetype.value,
+        deck: els.deckNameInput.value,
+      }),
+    });
+    if (!resp.ok) {
+      throw new Error(friendlyErrorMessage(resp.status, `save failed (${resp.status})`));
+    }
+    els.syncStatus.textContent = "Saved";
+  } catch (err) {
+    els.syncStatus.textContent = `Not saved — ${err.message} `;
+    const retryBtn = document.createElement("button");
+    retryBtn.type = "button";
+    retryBtn.textContent = "Retry";
+    retryBtn.addEventListener("click", runSync);
+    els.syncStatus.append(retryBtn);
+  }
+}
+
+async function initDeck() {
+  try {
+    const resp = await fetch("/api/deck");
+    if (!resp.ok) {
+      throw new Error(friendlyErrorMessage(resp.status, `load failed (${resp.status})`));
+    }
+    const data = await resp.json();
+
+    if (data.exists) {
+      // If the user already added/removed a card before this GET
+      // resolved, keep their edit instead of overwriting it with what
+      // was on the server before that edit happened -- the edit's own
+      // scheduled sync will push it up shortly regardless.
+      if (!hasLocalEdit) {
+        deck = data.cards;
+        persistDeckLocally();
+        if (data.notetype) {
+          els.notetype.value = data.notetype;
+          localStorage.setItem(STORAGE_KEYS.notetype, data.notetype);
+        }
+        if (data.deck) {
+          els.deckNameInput.value = data.deck;
+          localStorage.setItem(STORAGE_KEYS.deckName, data.deck);
+        }
+        renderDeck();
+      }
+    } else if (deck.length > 0) {
+      // No document on the server yet, but there's a deck in this
+      // browser's localStorage (from before this feature existed, or
+      // from a session that never finished syncing) -- push it up once
+      // rather than treating "nothing on the server" as "start empty".
+      scheduleSync();
+    }
+    els.syncStatus.textContent = "";
+  } catch (err) {
+    els.syncStatus.textContent = err.message || "Offline — showing the last saved copy";
+  }
+}
+
 async function generateCard() {
   const vocab = els.vocab.value.trim();
   if (!vocab) {
@@ -118,7 +225,7 @@ async function generateCard() {
   try {
     const resp = await fetch("/api/generate", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...accessCodeHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         vocab,
         research: els.research.checked,
@@ -127,7 +234,7 @@ async function generateCard() {
     });
     const data = await resp.json();
     if (!resp.ok) {
-      throw new Error(data.error || `request failed (${resp.status})`);
+      throw new Error(friendlyErrorMessage(resp.status, data.error || `request failed (${resp.status})`));
     }
 
     els.fieldFront.value = data.front;
@@ -176,7 +283,7 @@ async function downloadDeck() {
   try {
     const resp = await fetch("/api/export", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...accessCodeHeaders() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         cards: deck,
         notetype: els.notetype.value,
@@ -186,7 +293,7 @@ async function downloadDeck() {
 
     if (!resp.ok) {
       const data = await resp.json().catch(() => ({}));
-      alert(`Export failed: ${data.error || resp.status}`);
+      alert(`Export failed: ${friendlyErrorMessage(resp.status, data.error || resp.status)}`);
       return;
     }
 
@@ -217,3 +324,4 @@ els.vocab.addEventListener("keydown", (event) => {
 
 initSettings();
 renderDeck();
+initDeck();

@@ -1,18 +1,35 @@
-import pytest
-
 import main as main_module
 from prompt import CardFields
 
 
-@pytest.fixture
-def client():
-    main_module.app.config["TESTING"] = True
-    with main_module.app.test_client() as client:
-        yield client
-
-
 def test_index_returns_200(client):
     resp = client.get("/")
+    assert resp.status_code == 200
+
+
+def test_generate_requires_no_session_when_auth_is_off(client, monkeypatch):
+    # The whole rest of this suite runs with auth off incidentally (no
+    # ZITADEL_*/K_SERVICE env vars in the test environment) -- this test
+    # names that state explicitly, so a future change to the decorator or
+    # its defaults shows up as a clearly-attributed failure here instead
+    # of a wall of unrelated-looking 401s across the rest of the file.
+    monkeypatch.setattr(
+        main_module,
+        "generate",
+        lambda vocab, research, guidance="": CardFields(front="x", expression="x", reading="x"),
+    )
+
+    resp = client.post("/api/generate", json={"vocab": "だが", "research": False})
+
+    assert resp.status_code == 200
+
+
+def test_export_requires_no_session_when_auth_is_off(client):
+    resp = client.post(
+        "/api/export",
+        json={"cards": [{"front": "x", "expression": "x", "reading": "x"}]},
+    )
+
     assert resp.status_code == 200
 
 
@@ -187,73 +204,8 @@ def test_export_rejects_non_list_cards(client):
     assert resp.status_code == 400
 
 
-def test_generate_allows_request_without_header_when_access_code_unset(client, monkeypatch):
-    # The default (local dev, and any deployment that never set
-    # APP_ACCESS_CODE): no gate at all.
-    monkeypatch.setattr(main_module, "ACCESS_CODE", "")
-    monkeypatch.setattr(
-        main_module,
-        "generate",
-        lambda vocab, research, guidance="": CardFields(front="x", expression="x", reading="x"),
-    )
-
-    resp = client.post("/api/generate", json={"vocab": "だが", "research": False})
-
-    assert resp.status_code == 200
-
-
-def test_generate_rejects_missing_access_code_header(client, monkeypatch):
-    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
-
-    resp = client.post("/api/generate", json={"vocab": "だが", "research": False})
-
-    assert resp.status_code == 401
-
-
-def test_generate_rejects_wrong_access_code_header(client, monkeypatch):
-    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
-
-    resp = client.post(
-        "/api/generate",
-        json={"vocab": "だが", "research": False},
-        headers={"X-Access-Code": "wrong"},
-    )
-
-    assert resp.status_code == 401
-
-
-def test_generate_allows_correct_access_code_header(client, monkeypatch):
-    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
-    monkeypatch.setattr(
-        main_module,
-        "generate",
-        lambda vocab, research, guidance="": CardFields(front="x", expression="x", reading="x"),
-    )
-
-    resp = client.post(
-        "/api/generate",
-        json={"vocab": "だが", "research": False},
-        headers={"X-Access-Code": "s3cr3t"},
-    )
-
-    assert resp.status_code == 200
-
-
-def test_export_rejects_missing_access_code_header(client, monkeypatch):
-    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
-
-    resp = client.post("/api/export", json={"cards": [{"front": "x", "expression": "x", "reading": "x"}]})
-
-    assert resp.status_code == 401
-
-
-def test_export_allows_correct_access_code_header(client, monkeypatch):
-    monkeypatch.setattr(main_module, "ACCESS_CODE", "s3cr3t")
-
-    resp = client.post(
-        "/api/export",
-        json={"cards": [{"front": "x", "expression": "x", "reading": "x"}]},
-        headers={"X-Access-Code": "s3cr3t"},
-    )
-
-    assert resp.status_code == 200
+def test_export_rejects_non_object_card_elements(client):
+    # A malformed element (not a dict) would otherwise reach build_tsv's
+    # card.get(...) and crash with an unhandled AttributeError/500.
+    resp = client.post("/api/export", json={"cards": [None]})
+    assert resp.status_code == 400
